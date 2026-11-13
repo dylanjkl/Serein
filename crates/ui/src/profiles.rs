@@ -1995,19 +1995,10 @@ fn local_date(seconds: i64) -> Option<String> {
 fn role_chips(
 	ui: &mut egui::Ui,
 	theme: &Theme,
-	state: &State,
+	roles: &[&model::permissions::Role],
+	guild: Id,
 	user: Id,
-	guild: &model::GuildProfile,
 ) {
-	let Some(roles) = state.guild_roles(guild.guild) else {
-		return;
-	};
-	let assigned = state.profile_role_ids(user, guild);
-	let roles: Vec<_> = roles
-		.iter()
-		.rev()
-		.filter(|role| role.id != guild.guild && assigned.contains(&role.id))
-		.collect();
 	let max_width = ui.available_width();
 	let widths: Vec<_> = roles
 		.iter()
@@ -2023,7 +2014,7 @@ fn role_chips(
 				.min(max_width)
 		})
 		.collect();
-	let expanded_id = ui.make_persistent_id(("profile-roles-expanded", guild.guild, user));
+	let expanded_id = ui.make_persistent_id(("profile-roles-expanded", guild, user));
 	let expanded = ui.data(|data| data.get_temp::<bool>(expanded_id).unwrap_or(false));
 	let fits = |widths: &[f32]| {
 		let mut rows = 1;
@@ -3970,21 +3961,24 @@ fn card_view(
 											action = Some(Action::Profile(next));
 										}
 									}
-									if let Some(guild) = data.guild.as_ref()
-										&& state.guild_roles(guild.guild).is_some_and(|roles| {
-											roles.iter().any(|role| {
-												role.id != guild.guild
-													&& guild.roles.contains(&role.id)
-											})
-										}) {
-										section(
-											ui,
-											&theme,
-											&mut sections,
-											"profiles-show-roles",
-											full,
-										);
-										role_chips(ui, &theme, state, data.user.id, guild);
+									if let Some(guild) = data.guild.as_ref() {
+										let roles = state.profile_roles(data.user.id, guild);
+										if !roles.is_empty() {
+											section(
+												ui,
+												&theme,
+												&mut sections,
+												"profiles-show-roles",
+												full,
+											);
+											role_chips(
+												ui,
+												&theme,
+												&roles,
+												guild.guild,
+												data.user.id,
+											);
+										}
 									}
 									if !data.private {
 										section(
